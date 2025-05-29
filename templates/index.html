@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Validador de Lista Negra</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background: #f4f6f8;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-top: 1rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 0.6rem;
+            margin-top: 0.5rem;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.6rem;
+            margin-top: 1.5rem;
+            border-radius: 5px;
+            border: none;
+            background-color: #4a7c2f;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #3d6225;
+        }
+
+        .resultado {
+            margin-top: 2rem;
+            padding: 1rem 1.5rem;
+            background: #e2f0d9;
+            border: 1px solid #a2c57d;
+            border-radius: 5px;
+            color: #4a7c2f;
+        }
+
+        .btn-descargar {
+            padding: 0.4rem 0.9rem;
+            background: #4a7c2f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-descargar:hover {
+            background: #3d6225;
+        }
+
+        .error {
+            color: red;
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        ul {
+            padding-left: 0;
+            margin-top: 0.5rem;
+            list-style: none;
+        }
+
+        ul li {
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .conteo-operadores {
+            margin-top: 1.5rem;
+            padding: 0.75rem 1rem;
+            background: #e7f1fb;
+            border: 1px solid #87a9d6;
+            border-radius: 6px;
+            color: #235397;
+            font-weight: 600;
+            font-size: 1rem;
+            line-height: 1.4;
+            flex-direction: column;
+            display: flex;
+        }
+
+        .conteo-operadores span {
+            white-space: nowrap;
+            background: #cfe1fa;
+            padding: 0.2rem 0.6rem;
+            border-radius: 3px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        /* Para lista operadores con descarga en línea */
+        .lista-operadores {
+            margin-top: 1.2rem;
+            padding: 0.75rem 1rem;
+            background: #e7f1fb;
+            border: 1px solid #87a9d6;
+            border-radius: 6px;
+            color: #235397;
+            font-weight: 600;
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+
+        .lista-operadores li {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid #87a9d6; /* Línea separadora */
+            padding-bottom: 8px;
+        }
+
+        .lista-operadores li:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .lista-operadores li span {
+            white-space: nowrap;
+        }
+
+        /* Botón descargar todo */
+        .btn-todo {
+            margin-top: 2rem;
+            display: block;
+            width: 100%;
+            padding: 0.75rem;
+            background: #235397;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-todo:hover {
+            background: #1a3a6e;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Validador de Lista Negra</h2>
+
+        <form action="/" method="POST" enctype="multipart/form-data">
+            <label for="archivo">Selecciona el archivo Excel:</label>
+            <input type="file" id="archivo" name="archivo" accept=".xlsx,.xls" required />
+            <button type="submit">Validar</button>
+        </form>
+
+        {% if resumen %}
+            {% if resumen.error %}
+                <p class="error">{{ resumen.error }}</p>
+            {% elif resumen.procesado %}
+                <div class="resultado">
+                    <p>Total filas en archivo original: <span>{{ resumen.total }}</span></p>
+                    <p>Filas en lista negra eliminadas: <span>{{ resumen.en_negra }}</span></p>
+                    <p>Filas finales procesadas: <span>{{ resumen.final }}</span></p>
+                </div>
+            {% endif %}
+        {% endif %}
+
+        {% if conteo_operadores %}
+            <div class="lista-operadores">
+                <h3 style="margin-bottom: 10px; color: #235397;">Archivos por operador:</h3>
+                <ul>
+                    {% for op, cnt in conteo_operadores.items() %}
+                    <li>
+                        <span>{{ op }} ({{ cnt }})</span>
+                        <a href="{{ url_for('descargar_operador', operador=op) }}" class="btn-descargar" download>Descargar</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <a href="{{ url_for('descargar_todos_operadores') }}" class="btn-todo" download>Descargar todos los archivos operadores (ZIP)</a>
+
+            <a href="{{ url_for('descargar') }}" class="btn-todo" download>Descargar todo (Archivo limpio completo)</a>
+        {% endif %}
+    </div>
+</body>
+
+</html>
