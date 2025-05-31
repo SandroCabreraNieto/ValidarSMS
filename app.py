@@ -2,12 +2,15 @@ from flask import Flask, request, render_template, send_file, redirect, url_for
 import pandas as pd
 import pyodbc
 from io import BytesIO
-import zipfile
 
 app = Flask(__name__)
 
-archivo_en_memoria = None  # Archivo limpio completo
-archivos_en_memoria = {}  # Archivos separados por operador en memoria
+archivo_en_memoria = None
+archivos_por_chip = {}
+
+# Leer chips.csv al iniciar
+chips_df = pd.read_csv("chips.csv")
+chips_por_operador = chips_df.groupby("Operador")["Chip"].apply(list).to_dict()
 
 def obtener_lista_negra():
     conexion = pyodbc.connect(
@@ -26,10 +29,10 @@ def obtener_lista_negra():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    global archivo_en_memoria, archivos_en_memoria
+    global archivo_en_memoria, archivos_por_chip
     resumen = None
     conteo_operadores = None
-    archivos_en_memoria = {}
+    chips_inputs = {}
 
     if request.method == "POST":
         archivo = request.files.get("archivo")
@@ -39,67 +42,23 @@ def index():
             if df.empty or df.shape[1] < 4:
                 resumen = {"error": "El archivo está vacío o no contiene al menos 4 columnas."}
             else:
-                # Formatear columnas 1 y 3 como texto
                 df.iloc[:, 0] = df.iloc[:, 0].astype(str)
                 df.iloc[:, 2] = df.iloc[:, 2].astype(str)
-
                 lista_negra = obtener_lista_negra()
-
-                # Filtrar filas donde la primera columna esté en lista negra
                 mask_negra = df.iloc[:, 0].isin(lista_negra)
                 df_filtrado = df[~mask_negra].copy()
 
-                # Reemplazar cualquier variante de "sin operador" por "ENTEL"
                 df_filtrado.iloc[:, 3] = df_filtrado.iloc[:, 3].apply(
                     lambda x: 'ENTEL' if isinstance(x, str) and 'sin operador' in x.lower() else x
                 )
-
-                # Estandarizar operadores a mayúsculas para el conteo
                 df_filtrado.iloc[:, 3] = df_filtrado.iloc[:, 3].astype(str).str.upper()
                 conteo = df_filtrado.iloc[:, 3].value_counts()
 
-                # Identificar operadores principales y agrupar "OTRAS OPERADORAS"
                 operadores_principales = ['CLARO', 'ENTEL', 'MOVISTAR']
-                conteo_operadores = {}
-                total_otras = 0
-                for operador, cantidad in conteo.items():
-                    if operador in operadores_principales:
-                        conteo_operadores[operador] = cantidad
-                    else:
-                        total_otras += cantidad
-                if total_otras > 0:
-                    conteo_operadores['OTRAS OPERADORAS'] = total_otras
+                conteo_operadores = {op: conteo[op] for op in operadores_principales if op in conteo}
 
-                # Guardar archivo limpio completo en memoria (solo columnas 0,1,2)
-                archivo_en_memoria = BytesIO()
-                with pd.ExcelWriter(archivo_en_memoria, engine='openpyxl') as writer:
-                    df_filtrado.iloc[:, 0:3].to_excel(writer, index=False, sheet_name='Limpio')
-                    ws = writer.sheets['Limpio']
-                    for cell in ws['A']:
-                        cell.number_format = '@'  # Formato texto columna A
-                    for cell in ws['C']:
-                        cell.number_format = '@'  # Formato texto columna C
-                archivo_en_memoria.seek(0)
-
-                # Crear archivos separados para cada operador (solo columnas 0,1,2)
-                for operador in conteo_operadores.keys():
-                    if operador == 'OTRAS OPERADORAS':
-                        otros_df = df_filtrado[~df_filtrado.iloc[:, 3].isin(operadores_principales)]
-                        df_op = otros_df.iloc[:, 0:3].copy()
-                    else:
-                        df_op = df_filtrado[df_filtrado.iloc[:, 3] == operador].iloc[:, 0:3].copy()
-
-                    bio = BytesIO()
-                    with pd.ExcelWriter(bio, engine='openpyxl') as writer:
-                        df_op.to_excel(writer, index=False, sheet_name='Limpio')
-                        ws = writer.sheets['Limpio']
-                        for cell in ws['A']:
-                            cell.number_format = '@'
-                        for cell in ws['C']:
-                            cell.number_format = '@'
-                    bio.seek(0)
-                    archivos_en_memoria[operador] = bio
-
+                archivo_en_memoria = df_filtrado
+                chips_inputs = {op: chips_por_operador.get(op.capitalize(), []) for op in conteo_operadores.keys()}
                 resumen = {
                     "total": len(df),
                     "en_negra": mask_negra.sum(),
@@ -107,48 +66,59 @@ def index():
                     "procesado": True
                 }
 
-    return render_template("index.html", resumen=resumen, conteo_operadores=conteo_operadores)
+    return render_template("index.html", resumen=resumen,
+                           conteo_operadores=conteo_operadores,
+                           chips_por_operador=chips_inputs,
+                           archivos_por_chip=archivos_por_chip)
 
-@app.route("/descargar")
-def descargar():
-    global archivo_en_memoria
-    if archivo_en_memoria:
-        return send_file(archivo_en_memoria, as_attachment=True, download_name="excel_limpio.xlsx")
-    return redirect(url_for("index"))
-
-@app.route("/descargar_operador/<operador>")
-def descargar_operador(operador):
-    global archivos_en_memoria
-    operador = operador.upper()
-    if operador in archivos_en_memoria:
-        archivo = archivos_en_memoria[operador]
-        archivo.seek(0)
-        return send_file(
-            archivo,
-            as_attachment=True,
-            download_name=f"{operador}_limpio.xlsx"
-        )
-    return redirect(url_for("index"))
-
-@app.route("/descargar_todos_operadores")
-def descargar_todos_operadores():
-    global archivos_en_memoria
-    if not archivos_en_memoria:
+@app.route("/dividir_chips", methods=["POST"])
+def dividir_chips():
+    global archivo_en_memoria, archivos_por_chip
+    if archivo_en_memoria is None:
         return redirect(url_for("index"))
 
-    zip_mem = BytesIO()
-    with zipfile.ZipFile(zip_mem, mode="w", compression=zipfile.ZIP_DEFLATED) as zipf:
-        for operador, archivo in archivos_en_memoria.items():
-            archivo.seek(0)
-            zipf.writestr(f"{operador}_limpio.xlsx", archivo.read())
-    zip_mem.seek(0)
+    df = archivo_en_memoria.copy()
+    archivos_por_chip = {}
 
-    return send_file(
-        zip_mem,
-        as_attachment=True,
-        download_name="todos_operadores.zip",
-        mimetype="application/zip"
-    )
+    operadores = df.iloc[:, 3].str.upper().unique()
 
+    for operador in operadores:
+        operador_df = df[df.iloc[:, 3] == operador]
+        chips_disponibles = chips_por_operador.get(operador.capitalize(), [])
+        if not operador_df.empty and chips_disponibles:
+            for chip in chips_disponibles:
+                cantidad_key = f"cantidad_{operador}_{chip}"
+                cantidad_str = request.form.get(cantidad_key)
+                if not cantidad_str or not cantidad_str.strip().isdigit():
+                    continue
+
+                cantidad = int(cantidad_str)
+                if cantidad <= 0:
+                    continue
+
+                df_chip = operador_df.iloc[:cantidad]
+                operador_df = operador_df.drop(df_chip.index)
+                df = df.drop(df_chip.index)
+
+                bio = BytesIO()
+                with pd.ExcelWriter(bio, engine='openpyxl') as writer:
+                    df_chip.to_excel(writer, index=False, sheet_name='Limpio')
+                bio.seek(0)
+                archivos_por_chip[chip] = {
+                    "archivo": bio,
+                    "filas": len(df_chip)
+                }
+
+    return redirect(url_for("index"))
+
+@app.route("/descargar_chip/<chip>")
+def descargar_chip(chip):
+    chip = chip.strip()
+    if chip in archivos_por_chip:
+        archivo = archivos_por_chip[chip]["archivo"]
+        archivo.seek(0)
+        return send_file(archivo, as_attachment=True, download_name=f"{chip}.xlsx")
+    return redirect(url_for("index"))
+    
 if __name__ == "__main__":
     app.run(debug=True)

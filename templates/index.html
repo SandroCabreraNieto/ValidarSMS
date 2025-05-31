@@ -3,57 +3,85 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Validador de Lista Negra</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 2rem;
-            background: #f4f6f8;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #e9edf0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .container {
-            max-width: 600px;
-            margin: auto;
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        .modal-container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
-        h2 {
+        .left-panel,
+        .right-panel {
+            padding: 1.5rem;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .left-panel {
+            width: 45%;
+            background: #f9fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            border-right: 1px solid #dcdcdc;
+        }
+
+        .right-panel {
+            width: 55%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* evita desbordamientos */
+        }
+
+        h2,
+        h3 {
             text-align: center;
             color: #333;
-            margin-bottom: 1.5rem;
+            margin: 0;
         }
 
         label {
-            display: block;
-            margin-top: 1rem;
             font-weight: bold;
-            color: #555;
         }
 
-        input[type="file"] {
-            width: 100%;
-            padding: 0.6rem;
-            margin-top: 0.5rem;
-            border-radius: 5px;
+        input[type="file"],
+        input[type="number"] {
+            padding: 0.4rem;
+            border-radius: 4px;
             border: 1px solid #ccc;
-            font-size: 1rem;
+        }
+
+        input[type="number"] {
+            width: 70px;
         }
 
         button {
-            width: 100%;
+            margin-top: 0.5rem;
             padding: 0.6rem;
-            margin-top: 1.5rem;
-            border-radius: 5px;
-            border: none;
-            background-color: #4a7c2f;
+            width: 100%;
+            background: #4a7c2f;
             color: white;
-            font-size: 1.1rem;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
         }
 
         button:hover {
@@ -61,168 +89,178 @@
         }
 
         .resultado {
-            margin-top: 2rem;
-            padding: 1rem 1.5rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            background: #fef9e7;
+            border-left: 5px solid #f5b041;
+            color: #7d6608;
+            font-weight: bold;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            padding: 0.4rem 0.8rem;
+            margin: 4px 0;
+        }
+
+        .lista-operadores {
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 370px;
+            padding: 0.8rem;
             background: #e2f0d9;
             border: 1px solid #a2c57d;
-            border-radius: 5px;
-            color: #4a7c2f;
+            border-radius: 6px;
+        }
+
+        .operador-bloque {
+            margin-bottom: 1rem;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.4rem;
+        }
+
+        .chip-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .chip-item label {
+            font-weight: normal;
         }
 
         .btn-descargar {
-            padding: 0.4rem 0.9rem;
-            background: #4a7c2f;
+            padding: 0.4rem 0.8rem;
+            background: #235397;
             color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 0.95rem;
             text-decoration: none;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
+            border-radius: 4px;
+            font-size: 0.85rem;
         }
 
         .btn-descargar:hover {
-            background: #3d6225;
+            background: #1a3a6e;
+        }
+
+        .lista-chips {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            /* oculta el scroll horizontal */
+            background: #f1f8ec;
+            border: 1px solid #cde0b4;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: #4a7c2f;
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+
+        .chips-descarga {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .chip-descarga {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e7f3da;
+            border: 1px solid #b7d4a8;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 100%;
+            /* que no se pase del contenedor */
+            box-sizing: border-box;
+            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.05);
+            word-wrap: break-word;
+        }
+
+        .chip-info {
+            font-size: 1rem;
+            color: #2d572c;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
         }
 
         .error {
             color: red;
-            margin-top: 1rem;
-            font-weight: bold;
-        }
-
-        ul {
-            padding-left: 0;
-            margin-top: 0.5rem;
-            list-style: none;
-        }
-
-        ul li {
-            margin-bottom: 0.6rem;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .conteo-operadores {
-            margin-top: 1.5rem;
-            padding: 0.75rem 1rem;
-            background: #e7f1fb;
-            border: 1px solid #87a9d6;
-            border-radius: 6px;
-            color: #235397;
-            font-weight: 600;
-            font-size: 1rem;
-            line-height: 1.4;
-            flex-direction: column;
-            display: flex;
-        }
-
-        .conteo-operadores span {
-            white-space: nowrap;
-            background: #cfe1fa;
-            padding: 0.2rem 0.6rem;
-            border-radius: 3px;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-        }
-
-        /* Para lista operadores con descarga en línea */
-        .lista-operadores {
-            margin-top: 1.2rem;
-            padding: 0.75rem 1rem;
-            background: #e7f1fb;
-            border: 1px solid #87a9d6;
-            border-radius: 6px;
-            color: #235397;
-            font-weight: 600;
-            font-size: 1rem;
-            line-height: 1.4;
-        }
-
-        .lista-operadores li {
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-            border-bottom: 1px solid #87a9d6; /* Línea separadora */
-            padding-bottom: 8px;
-        }
-
-        .lista-operadores li:last-child {
-            margin-bottom: 0;
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-
-        .lista-operadores li span {
-            white-space: nowrap;
-        }
-
-        /* Botón descargar todo */
-        .btn-todo {
-            margin-top: 2rem;
-            display: block;
-            width: 100%;
-            padding: 0.75rem;
-            background: #235397;
-            color: white;
-            font-size: 1.1rem;
-            font-weight: 700;
-            border: none;
-            border-radius: 7px;
-            cursor: pointer;
-            text-align: center;
-            text-decoration: none;
-            transition: background-color 0.3s ease;
-        }
-
-        .btn-todo:hover {
-            background: #1a3a6e;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <h2>Validador de Lista Negra</h2>
+    <div class="modal-container">
+        <!-- IZQUIERDA -->
+        <div class="left-panel">
+            <h2>VALIDADOR SMS</h2>
 
-        <form action="/" method="POST" enctype="multipart/form-data">
-            <label for="archivo">Selecciona el archivo Excel:</label>
-            <input type="file" id="archivo" name="archivo" accept=".xlsx,.xls" required />
-            <button type="submit">Validar</button>
-        </form>
+            <form method="POST" enctype="multipart/form-data">
+                <label for="archivo">Selecciona el archivo Excel:</label>
+                <input type="file" name="archivo" required />
+                <button type="submit">Validar</button>
+            </form>
 
-        {% if resumen %}
+            {% if resumen %}
             {% if resumen.error %}
-                <p class="error">{{ resumen.error }}</p>
-            {% elif resumen.procesado %}
-                <div class="resultado">
-                    <p>Total filas en archivo original: <span>{{ resumen.total }}</span></p>
-                    <p>Filas en lista negra eliminadas: <span>{{ resumen.en_negra }}</span></p>
-                    <p>Filas finales procesadas: <span>{{ resumen.final }}</span></p>
-                </div>
-            {% endif %}
-        {% endif %}
-
-        {% if conteo_operadores %}
-            <div class="lista-operadores">
-                <h3 style="margin-bottom: 10px; color: #235397;">Archivos por operador:</h3>
-                <ul>
-                    {% for op, cnt in conteo_operadores.items() %}
-                    <li>
-                        <span>{{ op }} ({{ cnt }})</span>
-                        <a href="{{ url_for('descargar_operador', operador=op) }}" class="btn-descargar" download>Descargar</a>
-                    </li>
-                    {% endfor %}
-                </ul>
+            <p class="error">{{ resumen.error }}</p>
+            {% else %}
+            <div class="resultado">
+                <div>Total: <strong>{{ resumen.total }}</strong></div>
+                <div>En negra: <strong>{{ resumen.en_negra }}</strong></div>
+                <div>Final: <strong>{{ resumen.final }}</strong></div>
             </div>
+            {% endif %}
+            {% endif %}
 
-            <a href="{{ url_for('descargar_todos_operadores') }}" class="btn-todo" download>Descargar todos los archivos operadores (ZIP)</a>
+            {% if conteo_operadores %}
+            <form method="POST" action="{{ url_for('dividir_chips') }}">
+                <div class="lista-operadores">
+                    {% for operador, cantidad in conteo_operadores.items() %}
+                    <div class="operador-bloque">
+                        <p><strong>{{ operador }}</strong> ({{ cantidad }} registros)</p>
+                        <div class="chip-row">
+                            {% for chip in chips_por_operador.get(operador, []) %}
+                            <div class="chip-item">
+                                <label for="cantidad_{{ operador }}_{{ chip }}">{{ chip }}:</label>
+                                <input type="number" name="cantidad_{{ operador }}_{{ chip }}" min="0"
+                                    max="{{ cantidad }}">
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="submit">Dividir por Chips</button>
+            </form>
+            {% endif %}
+        </div>
+        <!-- DERECHA -->
+        <div class="right-panel">
+            {% if archivos_por_chip %}
+            <div class="lista-chips">
 
-            <a href="{{ url_for('descargar') }}" class="btn-todo" download>Descargar todo (Archivo limpio completo)</a>
-        {% endif %}
-    </div>
+                <div class="chips-descarga">
+                    {% for chip, info in archivos_por_chip.items() %}
+                    <div class="chip-descarga">
+                        <div class="chip-info">
+                            <strong>{{ chip }}</strong><span> - {{ info.filas }} filas</span>
+                        </div>
+                        <a class="btn-descargar" href="{{ url_for('descargar_chip', chip=chip) }}">Descargar</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
 </body>
 
 </html>
