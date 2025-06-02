@@ -5,8 +5,12 @@ from io import BytesIO
 
 app = Flask(__name__)
 
+# Variables globales para mantener el estado
 archivo_en_memoria = None
 archivos_por_chip = {}
+conteo_operadores_global = None
+chips_inputs_global = {}
+resumen_global = None
 
 # Leer chips.csv al iniciar
 chips_df = pd.read_csv("chips.csv")
@@ -30,6 +34,8 @@ def obtener_lista_negra():
 @app.route("/", methods=["GET", "POST"])
 def index():
     global archivo_en_memoria, archivos_por_chip
+    global conteo_operadores_global, chips_inputs_global, resumen_global
+
     resumen = None
     conteo_operadores = None
     chips_inputs = {}
@@ -41,6 +47,7 @@ def index():
 
             if df.empty or df.shape[1] < 4:
                 resumen = {"error": "El archivo está vacío o no contiene al menos 4 columnas."}
+                resumen_global = resumen
             else:
                 df.iloc[:, 0] = df.iloc[:, 0].astype(str)
                 df.iloc[:, 2] = df.iloc[:, 2].astype(str)
@@ -59,17 +66,25 @@ def index():
 
                 archivo_en_memoria = df_filtrado
                 chips_inputs = {op: chips_por_operador.get(op.capitalize(), []) for op in conteo_operadores.keys()}
+
+                conteo_operadores_global = conteo_operadores
+                chips_inputs_global = chips_inputs
+
                 resumen = {
                     "total": len(df),
                     "en_negra": mask_negra.sum(),
                     "final": len(df_filtrado),
                     "procesado": True
                 }
+                resumen_global = resumen
 
-    return render_template("index.html", resumen=resumen,
-                           conteo_operadores=conteo_operadores,
-                           chips_por_operador=chips_inputs,
-                           archivos_por_chip=archivos_por_chip)
+    return render_template(
+        "index.html",
+        resumen=resumen if resumen else resumen_global,
+        conteo_operadores=conteo_operadores if conteo_operadores else conteo_operadores_global,
+        chips_por_operador=chips_inputs if chips_inputs else chips_inputs_global,
+        archivos_por_chip=archivos_por_chip
+    )
 
 @app.route("/dividir_chips", methods=["POST"])
 def dividir_chips():
@@ -119,6 +134,6 @@ def descargar_chip(chip):
         archivo.seek(0)
         return send_file(archivo, as_attachment=True, download_name=f"{chip}.xlsx")
     return redirect(url_for("index"))
-    
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

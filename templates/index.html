@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8" />
     <title>Validador de Lista Negra</title>
@@ -27,8 +26,7 @@
             overflow: hidden;
         }
 
-        .left-panel,
-        .right-panel {
+        .left-panel, .right-panel {
             padding: 1.5rem;
             box-sizing: border-box;
             overflow: hidden;
@@ -48,11 +46,9 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            /* evita desbordamientos */
         }
 
-        h2,
-        h3 {
+        h2 {
             text-align: center;
             color: #333;
             margin: 0;
@@ -103,30 +99,47 @@
         }
 
         .lista-operadores {
-            flex-grow: 1;
+            display: flex;
+            gap: 2rem;
+            max-height: 340px;
             overflow-y: auto;
-            max-height: 370px;
-            padding: 0.8rem;
             background: #e2f0d9;
             border: 1px solid #a2c57d;
             border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .columna-operador {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 1rem;
         }
 
         .operador-bloque {
-            margin-bottom: 1rem;
+            background: #f7fff0;
+            border: 1px solid #d3e6b8;
+            padding: 0.5rem;
+            border-radius: 6px;
+        }
+
+        .operador-bloque p {
+            margin: 0 0 0.5rem 0;
+            font-weight: bold;
+            color: #2d572c;
         }
 
         .chip-row {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.4rem;
+            flex-direction: column;
+            gap: 0.3rem;
         }
 
         .chip-item {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 0.3rem;
         }
 
         .chip-item label {
@@ -149,8 +162,6 @@
         .lista-chips {
             flex: 1;
             overflow-y: auto;
-            overflow-x: hidden;
-            /* oculta el scroll horizontal */
             background: #f1f8ec;
             border: 1px solid #cde0b4;
             border-radius: 8px;
@@ -158,7 +169,6 @@
             margin-bottom: 1rem;
             color: #4a7c2f;
             box-sizing: border-box;
-            max-width: 100%;
         }
 
         .chips-descarga {
@@ -176,11 +186,8 @@
             padding: 0.8rem 1rem;
             border-radius: 8px;
             width: 100%;
-            max-width: 100%;
-            /* que no se pase del contenedor */
             box-sizing: border-box;
             box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.05);
-            word-wrap: break-word;
         }
 
         .chip-info {
@@ -194,9 +201,18 @@
         .error {
             color: red;
         }
+
+        .resumen {
+            background: #e7f3fb;
+            border: 1px solid #b5d5ea;
+            border-radius: 8px;
+            padding: 1rem;
+            flex-grow: 1;
+            overflow-y: auto;
+            color: #31708f;
+        }
     </style>
 </head>
-
 <body>
     <div class="modal-container">
         <!-- IZQUIERDA -->
@@ -215,39 +231,82 @@
             {% else %}
             <div class="resultado">
                 <div>Total: <strong>{{ resumen.total }}</strong></div>
-                <div>En negra: <strong>{{ resumen.en_negra }}</strong></div>
+                <div>En Lista negra: <strong>{{ resumen.en_negra }}</strong></div>
                 <div>Final: <strong>{{ resumen.final }}</strong></div>
             </div>
             {% endif %}
             {% endif %}
 
+            <div class="resumen">
+                <!-- Puedes usar este bloque para info adicional -->
+            </div>
+
             {% if conteo_operadores %}
             <form method="POST" action="{{ url_for('dividir_chips') }}">
                 <div class="lista-operadores">
-                    {% for operador, cantidad in conteo_operadores.items() %}
-                    <div class="operador-bloque">
-                        <p><strong>{{ operador }}</strong> ({{ cantidad }} registros)</p>
-                        <div class="chip-row">
-                            {% for chip in chips_por_operador.get(operador, []) %}
-                            <div class="chip-item">
-                                <label for="cantidad_{{ operador }}_{{ chip }}">{{ chip }}:</label>
-                                <input type="number" name="cantidad_{{ operador }}_{{ chip }}" min="0"
-                                    max="{{ cantidad }}">
+                    <!-- CLARO -->
+                    <div class="columna-operador">
+                        {% for operador, cantidad in conteo_operadores.items() %}
+                        {% if "CLARO" in operador %}
+                        <div class="operador-bloque">
+                            <p>{{ operador }} ({{ cantidad }} registros)</p>
+                            <div class="chip-row">
+                                {% for chip in chips_por_operador.get(operador, []) %}
+                                <div class="chip-item">
+                                    <label for="cantidad_{{ operador }}_{{ chip }}">{{ chip }}</label>
+                                    <input type="number" name="cantidad_{{ operador }}_{{ chip }}" min="0" max="{{ cantidad }}">
+                                </div>
+                                {% endfor %}
                             </div>
-                            {% endfor %}
                         </div>
+                        {% endif %}
+                        {% endfor %}
                     </div>
-                    {% endfor %}
+
+                    <!-- MOVISTAR + ENTEL -->
+                    <div class="columna-operador">
+                        {% for operador, cantidad in conteo_operadores.items() %}
+                        {% if "MOVISTAR" in operador %}
+                        <div class="operador-bloque">
+                            <p>{{ operador }} ({{ cantidad }} registros)</p>
+                            <div class="chip-row">
+                                {% for chip in chips_por_operador.get(operador, []) %}
+                                <div class="chip-item">
+                                    <label for="cantidad_{{ operador }}_{{ chip }}">{{ chip }}</label>
+                                    <input type="number" name="cantidad_{{ operador }}_{{ chip }}" min="0" max="{{ cantidad }}">
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% for operador, cantidad in conteo_operadores.items() %}
+                        {% if "ENTEL" in operador or "SINAPASIS" in operador %}
+                        <div class="operador-bloque">
+                            <p>{{ operador }} ({{ cantidad }} registros)</p>
+                            <div class="chip-row">
+                                {% for chip in chips_por_operador.get(operador, []) %}
+                                <div class="chip-item">
+                                    <label for="cantidad_{{ operador }}_{{ chip }}">{{ chip }}</label>
+                                    <input type="number" name="cantidad_{{ operador }}_{{ chip }}" min="0" max="{{ cantidad }}">
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
                 </div>
                 <button type="submit">Dividir por Chips</button>
             </form>
             {% endif %}
         </div>
+
         <!-- DERECHA -->
         <div class="right-panel">
             {% if archivos_por_chip %}
             <div class="lista-chips">
-
                 <div class="chips-descarga">
                     {% for chip, info in archivos_por_chip.items() %}
                     <div class="chip-descarga">
@@ -258,9 +317,9 @@
                     </div>
                     {% endfor %}
                 </div>
-                {% endif %}
             </div>
+            {% endif %}
         </div>
+    </div>
 </body>
-
 </html>
