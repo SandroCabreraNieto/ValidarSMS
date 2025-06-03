@@ -1,18 +1,18 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for
+from flask import Flask, request, render_template, send_file, redirect, url_for, jsonify
 import pandas as pd
 import pyodbc
 from io import BytesIO
 
 app = Flask(__name__)
 
-# Variables globales para mantener el estado
 archivo_en_memoria = None
 archivos_por_chip = {}
 conteo_operadores_global = None
 chips_inputs_global = {}
 resumen_global = None
+conteo_completo_global = None
+lista_negra_df_global = pd.DataFrame()
 
-# Leer chips.csv al iniciar
 chips_df = pd.read_csv("chips.csv")
 chips_por_operador = chips_df.groupby("Operador")["Chip"].apply(list).to_dict()
 
@@ -35,9 +35,11 @@ def obtener_lista_negra():
 def index():
     global archivo_en_memoria, archivos_por_chip
     global conteo_operadores_global, chips_inputs_global, resumen_global
+    global lista_negra_df_global, conteo_completo_global
 
     resumen = None
     conteo_operadores = None
+    conteo_completo = None
     chips_inputs = {}
 
     if request.method == "POST":
@@ -53,14 +55,20 @@ def index():
                 df.iloc[:, 2] = df.iloc[:, 2].astype(str)
                 lista_negra = obtener_lista_negra()
                 mask_negra = df.iloc[:, 0].isin(lista_negra)
+
+                lista_negra_df = df[mask_negra].copy()
+                lista_negra_df_global = lista_negra_df
+
                 df_filtrado = df[~mask_negra].copy()
-
-                df_filtrado.iloc[:, 3] = df_filtrado.iloc[:, 3].apply(
-                    lambda x: 'ENTEL' if isinstance(x, str) and 'sin operador' in x.lower() else x
+                df_filtrado['OPERADOR_ORIGINAL'] = df_filtrado.iloc[:, 3].astype(str).str.upper()
+                df_filtrado['OPERADOR_AGRUPADO'] = df_filtrado['OPERADOR_ORIGINAL'].apply(
+                    lambda x: 'ENTEL' if 'SIN OPERADOR' in x else x
                 )
-                df_filtrado.iloc[:, 3] = df_filtrado.iloc[:, 3].astype(str).str.upper()
-                conteo = df_filtrado.iloc[:, 3].value_counts()
 
+                conteo_completo = df_filtrado['OPERADOR_ORIGINAL'].value_counts().to_dict()
+                conteo_completo_global = conteo_completo
+
+                conteo = df_filtrado['OPERADOR_AGRUPADO'].value_counts()
                 operadores_principales = ['CLARO', 'ENTEL', 'MOVISTAR']
                 conteo_operadores = {op: conteo[op] for op in operadores_principales if op in conteo}
 
@@ -82,8 +90,10 @@ def index():
         "index.html",
         resumen=resumen if resumen else resumen_global,
         conteo_operadores=conteo_operadores if conteo_operadores else conteo_operadores_global,
+        conteo_completo=conteo_completo if conteo_completo else conteo_completo_global,
         chips_por_operador=chips_inputs if chips_inputs else chips_inputs_global,
-        archivos_por_chip=archivos_por_chip
+        archivos_por_chip=archivos_por_chip,
+        mostrar_modal=bool(not lista_negra_df_global.empty)
     )
 
 @app.route("/dividir_chips", methods=["POST"])
@@ -95,10 +105,10 @@ def dividir_chips():
     df = archivo_en_memoria.copy()
     archivos_por_chip = {}
 
-    operadores = df.iloc[:, 3].str.upper().unique()
+    operadores = df['OPERADOR_AGRUPADO'].unique()
 
     for operador in operadores:
-        operador_df = df[df.iloc[:, 3] == operador]
+        operador_df = df[df['OPERADOR_AGRUPADO'] == operador]
         chips_disponibles = chips_por_operador.get(operador.capitalize(), [])
         if not operador_df.empty and chips_disponibles:
             for chip in chips_disponibles:
@@ -134,6 +144,13 @@ def descargar_chip(chip):
         archivo.seek(0)
         return send_file(archivo, as_attachment=True, download_name=f"{chip}.xlsx")
     return redirect(url_for("index"))
+
+@app.route("/lista_negra_data")
+def lista_negra_data():
+    global lista_negra_df_global
+    if lista_negra_df_global.empty:
+        return jsonify([])
+    return lista_negra_df_global.to_dict(orient="records")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
